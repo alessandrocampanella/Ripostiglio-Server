@@ -4,11 +4,15 @@ API (FastAPI + PostgreSQL) per sapere dove sono le cose di casa. Client: `ripost
 
 ## Installazione sul Raspberry
 
+Richiede Python 3.10 o superiore. Il progetto va in `~/servers/Ripostiglio-Server`.
+
 ```bash
 sudo apt install postgresql python3-venv
 sudo -u postgres psql -c "CREATE USER ripostiglio PASSWORD 'una-password'" -c "CREATE DATABASE ripostiglio OWNER ripostiglio"
 
-git clone <url-repo> ~/ripostiglio-server && cd ~/ripostiglio-server
+cd ~/servers
+git clone https://github.com/alessandrocampanella/Ripostiglio-Server.git
+cd Ripostiglio-Server
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env        # compila DATABASE_URL e JWT_SECRET
 
@@ -23,10 +27,12 @@ Le password sono salvate come hash Argon2id.
 ## Avvio
 
 ```bash
-sudo cp deploy/ripostiglio.service /etc/systemd/system/   # controlla utente e percorsi
-sudo systemctl enable --now ripostiglio
-curl http://127.0.0.1:8000/health
+~/servers/Ripostiglio-Server/ripostiglio.sh
 ```
+
+Lo script fa `git pull`, aggiorna le dipendenze e avvia il server su `127.0.0.1:8000`.
+Per farlo partire all'accensione, registralo come gli altri server in `~/servers`.
+Il `git pull` all'avvio richiede che git sul Raspberry abbia le credenziali salvate (chiave SSH o credential helper).
 
 Il server ascolta solo su `127.0.0.1`: da fuori si raggiunge tramite Cloudflare Tunnel, senza porte aperte.
 
