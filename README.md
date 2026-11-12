@@ -34,19 +34,20 @@ Lo script fa `git pull`, aggiorna le dipendenze e avvia il server su `127.0.0.1:
 Per farlo partire all'accensione, registralo come gli altri server in `~/servers`.
 Il `git pull` all'avvio richiede che git sul Raspberry abbia le credenziali salvate (chiave SSH o credential helper).
 
-Il server ascolta solo su `127.0.0.1`: da fuori si raggiunge tramite Cloudflare Tunnel, senza porte aperte.
+Il server ascolta solo su `127.0.0.1`: da fuori si raggiunge tramite Tailscale Funnel, senza porte aperte.
 
-## Cloudflare Tunnel
+## Accesso da internet: Tailscale Funnel
 
-Serve un dominio gestito da Cloudflare.
+Funnel pubblica il server su un indirizzo HTTPS fisso (`https://<macchina>.<tailnet>.ts.net`) senza aprire porte.
 
 ```bash
-cloudflared tunnel login
-cloudflared tunnel create ripostiglio
-cloudflared tunnel route dns ripostiglio ripostiglio.tuodominio.it
-sudo cp deploy/cloudflared-config.example.yml /etc/cloudflared/config.yml   # inserisci TUNNEL_ID e hostname
-sudo cloudflared service install
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+sudo tailscale funnel --bg 8000
 ```
+
+`--bg` rende la configurazione permanente: dopo un riavvio Funnel riparte da solo.
+Nella console di Tailscale disattiva la scadenza della chiave per il Raspberry (Machines → ⋯ → Disable key expiry).
 
 ## API
 
