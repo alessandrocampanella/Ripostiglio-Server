@@ -32,6 +32,7 @@ class UserOut(BaseModel):
     id: int
     username: str
     email: str
+    color_hue: int
 
 
 class LookupIn(BaseModel):
@@ -52,6 +53,7 @@ class ItemIn(BaseModel):
     position: OptText = None
     notes: OptText = None
     to_find: bool = False
+    is_public: bool = True
 
 
 class ItemOut(BaseModel):
@@ -66,7 +68,9 @@ class ItemOut(BaseModel):
     position: str | None
     notes: str | None
     to_find: bool
+    is_public: bool
     created_by: str | None
+    created_by_hue: int | None
     updated_by: str | None
     created_at: datetime
     updated_at: datetime

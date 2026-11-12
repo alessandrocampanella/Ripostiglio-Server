@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import ForeignKey, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -13,6 +13,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(unique=True)
     email: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
+    # Tinta (0-359) della chip utente: la sceglie a caso il database alla creazione.
+    color_hue: Mapped[int] = mapped_column(server_default=text("floor(random() * 360)"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
@@ -41,6 +43,7 @@ class Item(Base):
     position: Mapped[str | None]
     notes: Mapped[str | None]
     to_find: Mapped[bool] = mapped_column(default=False)
+    is_public: Mapped[bool] = mapped_column(default=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -66,3 +69,7 @@ class Item(Base):
     @property
     def updated_by(self) -> str | None:
         return self.updated_by_user.username if self.updated_by_user else None
+
+    @property
+    def created_by_hue(self) -> int | None:
+        return self.created_by_user.color_hue if self.created_by_user else None

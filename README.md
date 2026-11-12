@@ -30,7 +30,7 @@ Le password sono salvate come hash Argon2id.
 ~/servers/Ripostiglio-Server/ripostiglio.sh
 ```
 
-Lo script fa `git pull`, aggiorna le dipendenze e avvia il server su `127.0.0.1:8000`.
+Lo script fa `git pull`, aggiorna le dipendenze, applica le migrazioni del database (`db/migrations`) e avvia il server su `127.0.0.1:8000`.
 Per farlo partire all'accensione, registralo come gli altri server in `~/servers`.
 Il `git pull` all'avvio richiede che git sul Raspberry abbia le credenziali salvate (chiave SSH o credential helper).
 
@@ -56,10 +56,15 @@ Documentazione interattiva su `/docs`. Tutto tranne `/health` e `/auth/login` ri
 | Metodo | Percorso | Note |
 |---|---|---|
 | POST | `/auth/login` | username o email + password → token (valido `JWT_EXPIRE_DAYS` giorni) |
-| GET | `/items` | filtri: `q`, `room_id`, `category_id`, `to_find` |
+| GET | `/items` | filtri: `q`, `room_id`, `category_id`, `to_find`; solo oggetti pubblici o propri |
 | POST / PUT / DELETE | `/items`, `/items/{id}` | autore e ultima modifica registrati dal token |
+| GET | `/me` | utente corrente, con la tinta della sua chip (`color_hue`) |
 | GET / POST | `/rooms`, `/categories` | |
 | GET | `/containers` | contenitori già usati, per i suggerimenti |
+
+Ogni oggetto è pubblico (`is_public: true`, lo vedono tutti gli utenti) oppure privato (lo vede solo chi l'ha aggiunto).
+Solo l'autore può cambiare la visibilità; per gli altri un oggetto privato risulta inesistente (404).
+Ogni utente ha una tinta casuale e fissa (`color_hue`, 0–359) che l'app usa per la chip con il suo nome (`created_by_hue` sugli oggetti).
 
 Dopo 5 login falliti l'accesso si blocca per 5 minuti.
 

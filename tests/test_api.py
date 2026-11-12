@@ -70,6 +70,57 @@ def test_search_and_filters(client, auth):
     assert names(q="100%") == []
 
 
+def test_private_items_only_visible_to_author(client, auth, other_auth):
+    private = client.post("/items", json={"name": "Regalo", "container": "Scatola segreta", "is_public": False}, headers=auth).json()
+    public = client.post("/items", json={"name": "Tenda"}, headers=auth).json()
+    assert (private["is_public"], public["is_public"]) == (False, True)
+
+    def names(headers):
+        return [item["name"] for item in client.get("/items", headers=headers).json()]
+
+    assert names(auth) == ["Regalo", "Tenda"]
+    assert names(other_auth) == ["Tenda"]
+    assert client.get("/containers", headers=other_auth).json() == []
+
+    # Per gli altri l'oggetto privato non esiste: né modifica né eliminazione.
+    url = f"/items/{private['id']}"
+    assert client.put(url, json={"name": "Mio"}, headers=other_auth).status_code == 404
+    assert client.delete(url, headers=other_auth).status_code == 404
+    assert names(auth) == ["Regalo", "Tenda"]
+
+
+def test_only_author_changes_visibility(client, auth, other_auth):
+    item = client.post("/items", json={"name": "Tenda"}, headers=auth).json()
+    url = f"/items/{item['id']}"
+
+    # Un altro utente può modificare un oggetto pubblico, ma non renderlo privato.
+    assert client.put(url, json={"name": "Tenda blu"}, headers=other_auth).json()["updated_by"] == "lucia"
+    assert client.put(url, json={"name": "Tenda blu", "is_public": False}, headers=other_auth).status_code == 403
+
+    assert client.put(url, json={"name": "Tenda blu", "is_public": False}, headers=auth).json()["is_public"] is False
+    assert client.get("/items", headers=other_auth).json() == []
+
+
+def test_author_color_is_fixed_per_user(client, auth, other_auth):
+    mine = [client.post("/items", json={"name": name}, headers=auth).json() for name in ("Uno", "Due")]
+    hue = client.get("/me", headers=auth).json()["color_hue"]
+    assert 0 <= hue < 360
+    assert [item["created_by_hue"] for item in mine] == [hue, hue]
+    listed = client.get("/items", headers=other_auth).json()
+    assert {(item["created_by"], item["created_by_hue"]) for item in listed} == {("mario", hue)}
+
+
+def test_migration_upgrades_old_database(client, auth):
+    migration = (Path(__file__).parent.parent / "db" / "migrations" / "001_visibilita_e_colore_utente.sql").read_text()
+    with psycopg.connect(TEST_DSN, autocommit=True) as conn:
+        conn.execute("ALTER TABLE items DROP COLUMN is_public; ALTER TABLE users DROP COLUMN color_hue;")
+        conn.execute("INSERT INTO items (name) VALUES ('Vecchio')")
+        for _ in range(2):  # rieseguibile
+            conn.execute(migration)
+        assert conn.execute("SELECT count(*) FROM users WHERE color_hue BETWEEN 0 AND 359").fetchone()[0] == 2
+    assert [item["is_public"] for item in client.get("/items", headers=auth).json()] == [True]
+
+
 def test_validation(client, auth):
     assert client.post("/items", json={"name": "  "}, headers=auth).status_code == 422
     assert client.post("/items", json={"name": "X", "room_id": 999}, headers=auth).status_code == 422

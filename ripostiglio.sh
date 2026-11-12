@@ -15,6 +15,8 @@ git pull --ff-only || echo "!! git pull non riuscito: avvio la versione già pre
 [ -d .venv ] || python3 -m venv .venv
 .venv/bin/pip install -q -r requirements.txt || echo "!! aggiornamento dipendenze non riuscito"
 
+.venv/bin/python -m app.cli migrate || echo "!! aggiornamento del database non riuscito"
+
 echo "Ripostiglio in ascolto su http://127.0.0.1:8000"
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 

@@ -25,13 +25,23 @@ def client():
         conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         conn.execute((ROOT / "db" / "schema.sql").read_text())
     with SessionLocal() as db:
-        db.add(User(username="mario", email="mario@example.com", password_hash=hash_password("password123")))
+        for name in ("mario", "lucia"):
+            db.add(User(username=name, email=f"{name}@example.com", password_hash=hash_password("password123")))
         db.commit()
     throttle._failures.clear()
     return TestClient(app)
 
 
+def _login(client, username: str) -> dict:
+    token = client.post("/auth/login", json={"username": username, "password": "password123"}).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture()
 def auth(client):
-    token = client.post("/auth/login", json={"username": "mario", "password": "password123"}).json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return _login(client, "mario")
+
+
+@pytest.fixture()
+def other_auth(client):
+    return _login(client, "lucia")

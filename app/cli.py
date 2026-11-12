@@ -2,14 +2,16 @@
 
     python -m app.cli create-user mario mario@example.com
     python -m app.cli set-password mario
+    python -m app.cli migrate        # applica db/migrations/*.sql (rieseguibili)
 """
 import argparse
 import getpass
 import sys
+from pathlib import Path
 
 from sqlalchemy import select
 
-from .db import SessionLocal
+from .db import SessionLocal, engine
 from .models import User
 from .security import hash_password
 
@@ -23,6 +25,14 @@ def ask_password() -> str:
     return password
 
 
+def migrate() -> None:
+    """Applica in ordine gli script di db/migrations: sono scritti per poter essere rieseguiti."""
+    for script in sorted((Path(__file__).parent.parent / "db" / "migrations").glob("*.sql")):
+        with engine.begin() as connection:
+            connection.exec_driver_sql(script.read_text())
+        print(f"Applicato {script.name}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -30,7 +40,12 @@ def main() -> None:
     create.add_argument("username")
     create.add_argument("email")
     commands.add_parser("set-password").add_argument("username")
+    commands.add_parser("migrate")
     args = parser.parse_args()
+
+    if args.command == "migrate":
+        migrate()
+        return
 
     username = args.username.strip().lower()
     with SessionLocal() as db:

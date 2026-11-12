@@ -14,6 +14,11 @@ throttle = LoginThrottle()
 SEARCH_COLUMNS = (Item.name, Item.container, Item.position, Item.notes)
 
 
+def _visible_to(user: User):
+    """Oggetti pubblici, più quelli privati aggiunti dall'utente stesso."""
+    return or_(Item.is_public, Item.created_by_id == user.id)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -82,18 +87,22 @@ def create_category(data: LookupIn, db: Session = Depends(get_db), _: User = Dep
 
 
 @app.get("/containers", response_model=list[str])
-def list_containers(db: Session = Depends(get_db), _: User = Depends(current_user)):
+def list_containers(db: Session = Depends(get_db), user: User = Depends(current_user)):
     """Contenitori già usati, per l'autocompletamento nell'app."""
     return db.scalars(
-        select(Item.container).where(Item.container.is_not(None)).distinct().order_by(Item.container)
+        select(Item.container)
+        .where(Item.container.is_not(None), _visible_to(user))
+        .distinct()
+        .order_by(Item.container)
     ).all()
 
 
 # ---------- Oggetti ----------
 
-def _get_item(item_id: int, db: Session) -> Item:
+def _get_item(item_id: int, db: Session, user: User) -> Item:
     item = db.get(Item, item_id)
-    if item is None:
+    # Un oggetto privato altrui risulta inesistente, così non se ne rivela nemmeno la presenza.
+    if item is None or not (item.is_public or item.created_by_id == user.id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Oggetto non trovato")
     return item
 
@@ -114,9 +123,9 @@ def list_items(
     to_find: bool | None = None,
     limit: int = Query(500, ge=1, le=1000),
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
 ):
-    query = select(Item)
+    query = select(Item).where(_visible_to(user))
     for word in (q or "").split():
         pattern = f"%{word}%"
         query = query.where(or_(*(column.ilike(pattern) for column in SEARCH_COLUMNS)))
@@ -140,7 +149,9 @@ def create_item(data: ItemIn, db: Session = Depends(get_db), user: User = Depend
 
 @app.put("/items/{item_id}", response_model=ItemOut)
 def update_item(item_id: int, data: ItemIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    item = _get_item(item_id, db)
+    item = _get_item(item_id, db, user)
+    if data.is_public != item.is_public and item.created_by_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo chi ha aggiunto l'oggetto può cambiarne la visibilità")
     for field, value in data.model_dump().items():
         setattr(item, field, value)
     item.updated_by_id = user.id
@@ -151,6 +162,6 @@ def update_item(item_id: int, data: ItemIn, db: Session = Depends(get_db), user:
 
 
 @app.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_item(item_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
-    db.delete(_get_item(item_id, db))
+def delete_item(item_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    db.delete(_get_item(item_id, db, user))
     db.commit()

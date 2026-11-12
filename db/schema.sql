@@ -4,6 +4,7 @@ CREATE TABLE users (
     username      TEXT NOT NULL UNIQUE,
     email         TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,              -- Argon2id
+    color_hue     SMALLINT NOT NULL DEFAULT floor(random() * 360),  -- tinta (0-359) della chip utente, casuale e fissa
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -26,6 +27,7 @@ CREATE TABLE items (
     position      TEXT,                        -- es. "Scaffale superiore"
     notes         TEXT,
     to_find       BOOLEAN NOT NULL DEFAULT FALSE,  -- oggetto ancora da trovare
+    is_public     BOOLEAN NOT NULL DEFAULT TRUE,   -- FALSE: lo vede solo chi l'ha aggiunto
     created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     updated_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
